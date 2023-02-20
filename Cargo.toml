@@ -1,0 +1,20 @@
+[workspace]
+members = ["enchant_calc", "enchant_calc_gui"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+authors = ["localcc"]
+description = "Most efficient enchantment sequence calculator for minecraft"
+
+[workspace.dependencies]
+enchant_calc = { path = "./enchant_calc" }
+enchant_calc_gui = { path = "./enchant_calc_gui" }
+
+lazy_static = "1.4.0"
+parking_lot = "0.12.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

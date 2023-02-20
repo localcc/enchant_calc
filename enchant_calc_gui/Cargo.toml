@@ -1,0 +1,16 @@
+[package]
+name = "enchant_calc_gui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+enchant_calc.workspace = true
+lazy_static.workspace = true
+parking_lot.workspace = true
+
+eframe = "0.21.3"
+egui_extras = { version = "0.21.0", features = ["image"] }
+itertools = "0.10.5"
+image = "0.24.5"
