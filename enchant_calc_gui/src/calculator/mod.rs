@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 use self::error::CalculatorError;
 use enchant_calc::solver::{self, SolverResult};
 use serde::{Deserialize, Serialize};
@@ -77,7 +79,7 @@ where
 extern "C" {
     #[no_mangle]
     #[used]
-    static PERFORMANCE: web_sys::Performance;
+    static performance: web_sys::Performance;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -88,13 +90,13 @@ pub fn calculate_worker(message: js_sys::Uint8Array) {
     let calculate = move || -> Result<(), CalculatorError> {
         let enchants: Vec<solver::Enchant> = decode(message)?;
 
-        let mut last_update = PERFORMANCE.now();
+        let mut last_update = performance.now();
         let mut tried_since_last_update = 0;
         let result = run_solver(enchants, |paths_tried| {
             // buffering updates to not create a lot of thread communication slowing down the application
             tried_since_last_update += paths_tried;
 
-            if (PERFORMANCE.now() - last_update) >= 1000f64 {
+            if (performance.now() - last_update) >= 1000f64 {
                 let encoded =
                     encode(&CalculatorResponse::Progress(tried_since_last_update)).unwrap();
                 js_sys::global()
@@ -104,7 +106,7 @@ pub fn calculate_worker(message: js_sys::Uint8Array) {
                     .unwrap();
 
                 tried_since_last_update = 0;
-                last_update = PERFORMANCE.now();
+                last_update = performance.now();
             }
         });
 

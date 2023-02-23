@@ -4,7 +4,7 @@ use eframe::{
     egui::{self, Button, RichText},
     epaint::{FontId, Stroke},
 };
-use egui::{Color32, Label, ScrollArea, Sense, Spinner, TextStyle, Ui, Vec2};
+use egui::{Color32, Label, Layout, ScrollArea, Sense, Spinner, TextStyle, Ui, Vec2};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use enchant_calc::{
     registry::{self, Item},
@@ -299,6 +299,25 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &eframe::egui::Context, _: &mut eframe::Frame) {
+        egui::TopBottomPanel::new(egui::panel::TopBottomSide::Bottom, "links").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.horizontal(|ui| {
+                    ui.style_mut().spacing.item_spacing.x = 0f32;
+
+                    ui.label(RichText::new("Created by localcc. Credits to ").small());
+                    ui.hyperlink_to(RichText::new("iamcal").small(), "https://github.com/iamcal");
+                    ui.label(RichText::new(" for the original solver.").small());
+                });
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.hyperlink_to(
+                        RichText::new(format!("Source on GitHub {}", egui::special_emojis::GITHUB))
+                            .small(),
+                        "https://github.com/localcc/enchant_calc",
+                    )
+                });
+            });
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             if !self.supported {
                 ui.vertical_centered(|ui| {
