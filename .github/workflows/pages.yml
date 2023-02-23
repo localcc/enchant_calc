@@ -1,0 +1,51 @@
+name: Github Pages
+
+# By default, runs if you push to master. keeps your deployed app in sync with master branch.
+on:
+    push:
+        branches:
+            - main
+# to only run when you do a new github release, comment out above part and uncomment the below trigger.
+# on:
+#   release:
+#     types:
+#       - published
+
+permissions:
+    contents: write # for committing to gh-pages branch.
+
+jobs:
+    build-github-pages:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2 # repo checkout
+            - uses: actions-rs/toolchain@v1 # get rust toolchain for wasm
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  target: wasm32-unknown-unknown
+                  override: true
+            - name: Rust Cache # cache the rust build artifacts
+              uses: Swatinem/rust-cache@v1
+
+            - name: Install wasm-pack
+              run: cargo install --git https://github.com/frewsxcv/wasm-pack.git --branch patch-2
+
+            - name: Build
+              run: wasm-pack build --no-typescript --target web --release enchant_calc_gui
+
+            - name: Copy files for deployment
+              run: |
+                  mkdir dist
+                  cp enchant_calc_gui/enable-threads.js dist/enable-threads.js
+                  cp enchant_calc_gui/index.html dist/index.html
+                  cp enchant_calc_gui/worker.mjs dist/worker.mjs
+                  cp -R enchant_calc_gui/pkg dist/pkg
+
+            - name: Deploy
+              uses: JamesIves/github-pages-deploy-action@v4
+              with:
+                  folder: dist
+                  # this option will not maintain any history of your previous pages deployment
+                  # set to false if you want all page build to be committed to your gh-pages branch history
+                  single-commit: true
