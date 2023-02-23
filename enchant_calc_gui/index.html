@@ -105,14 +105,14 @@
     <!-- the id is hardcoded in main.rs . so, make sure both match. -->
     <canvas id="the_canvas_id"></canvas>
 
-    <script src="/enable-threads.js"></script>
-    <link rel="preload" href="/pkg/enchant_calc_gui_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-    <link rel="modulepreload" href="/pkg/enchant_calc_gui.js">
-    <script type="module" src="/worker.mjs"></script>
-    
+    <script src=".//enable-threads.js"></script>
+    <link rel="preload" href="./pkg/enchant_calc_gui_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+    <link rel="modulepreload" href="./pkg/enchant_calc_gui.js">
+    <script type="module" src="./worker.mjs"></script>
+
 
     <script type="module">
-        import init, {main} from '/pkg/enchant_calc_gui.js';
+        import init, {main} from './pkg/enchant_calc_gui.js';
 
         // https://stackoverflow.com/questions/62954570/javascript-feature-detect-module-support-for-web-workers
         function supportsWorkerType() {
@@ -133,7 +133,7 @@
             }
         }
 
-        (async () => { 
+        (async () => {
             await init();
             main(supportsWorkerType());
         })();
