@@ -12,9 +12,16 @@ enchant_calc = { path = "./enchant_calc" }
 enchant_calc_gui = { path = "./enchant_calc_gui" }
 
 lazy_static = "1.4.0"
-parking_lot = "0.12.1"
+parking_lot = { version = "0.12.1", features = ["nightly"] }
+serde = { version = "1.0.152", features = ["derive"] }
+
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
+debug = true
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2

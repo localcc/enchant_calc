@@ -6,23 +6,21 @@ use std::{
         atomic::{AtomicU32, Ordering},
         Arc,
     },
-    time::{Duration, Instant},
 };
 
-use parking_lot::Mutex;
-use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::registry;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Enchant {
-    pub enchant: registry::Enchant<'static>,
+    pub enchant: registry::Enchant,
     pub level: u32,
     score: u32,
 }
 
 impl Enchant {
-    pub fn new(enchant: registry::Enchant<'static>, level: u32) -> Self {
+    pub fn new(enchant: registry::Enchant, level: u32) -> Self {
         let score = enchant.weight * level;
         Self {
             enchant,
@@ -41,6 +39,15 @@ struct Path {
 }
 
 impl Path {
+    pub fn with_capacity(cost: u32, max_cost: u32, remaining: usize, steps: usize) -> Path {
+        Path {
+            cost,
+            max_cost,
+            remaining: Vec::with_capacity(remaining),
+            steps: Vec::with_capacity(steps),
+        }
+    }
+
     pub fn is_more_effective(&self, other: &Path) -> bool {
         self.cost < other.cost || (self.cost == other.cost && self.max_cost < other.cost)
     }
@@ -60,13 +67,14 @@ impl Path {
                 if self.remaining[right]
                     .combination
                     .first()
-                    .map(|e| <Arc<ItemKey> as Borrow<ItemKey>>::borrow(e) == &ItemKey::Item)
+                    .map(|e| e == &ItemKey::Item)
                     .unwrap_or(false)
                 {
                     continue;
                 }
 
-                let mut new_path = Path::default();
+                let mut new_path =
+                    Path::with_capacity(0, 0, self.remaining.capacity(), self.steps.capacity());
 
                 for i in 0..len {
                     if i != left && i != right {
@@ -154,14 +162,14 @@ impl Ord for ItemKey {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct ItemKeyCombination {
-    pub combination: Vec<Arc<ItemKey>>,
+    pub combination: Vec<ItemKey>,
     pub anvil_use_count: u32,
 }
 
 impl ItemKeyCombination {
     pub fn single_item(key: ItemKey, anvil_use_count: u32) -> Self {
         ItemKeyCombination {
-            combination: Vec::from([Arc::new(key)]),
+            combination: Vec::from([key]),
             anvil_use_count,
         }
     }
@@ -205,29 +213,28 @@ pub struct Solver<'enchants> {
     items: Vec<Arc<ItemKeyCombination>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum ResolvedStepItem {
     Item,
     Enchant(Enchant),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResolvedStep {
     pub left: Vec<ResolvedStepItem>,
     pub right: Vec<ResolvedStepItem>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResolvedPath {
     pub cost: u32,
     pub steps: Vec<ResolvedStep>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SolverResult {
     pub path: Option<ResolvedPath>,
     pub paths_tried: u32,
-    pub time: Duration,
 }
 
 impl<'enchants> Solver<'enchants> {
@@ -262,58 +269,46 @@ impl<'enchants> Solver<'enchants> {
             .collect::<Vec<_>>()
     }
 
-    pub fn solve(&self, step_completion_callback: impl Fn(u32)) -> SolverResult {
-        let start = Instant::now();
-        let mut incomplete_paths = Vec::from([Path {
+    fn solve_inner(
+        incomplete_path: &Path,
+        best_path: &mut Option<Path>,
+        path_explored_callback: &mut impl FnMut(u32),
+    ) {
+        let (paths, tried) = incomplete_path.explode();
+        for path in paths {
+            if path.remaining.len() > 1 {
+                Solver::solve_inner(&path, best_path, path_explored_callback);
+            } else {
+                path_explored_callback(tried);
+
+                if best_path
+                    .as_ref()
+                    .map(|e| path.is_more_effective(e))
+                    .unwrap_or(true)
+                {
+                    *best_path = Some(path)
+                }
+            }
+        }
+    }
+
+    pub fn solve(&self, mut path_explored_callback: impl FnMut(u32)) -> SolverResult {
+        let incomplete_path = Path {
             cost: 0,
             max_cost: 0,
-            remaining: self.items.clone(),
-            steps: Vec::new(),
-        }]);
-
-        let best_path: Arc<Mutex<Option<Path>>> = Arc::new(Mutex::new(None));
+            remaining: Vec::from_iter(self.items.clone()),
+            steps: Vec::with_capacity(self.items.len()),
+        };
+        let mut best_path: Option<Path> = None;
         let paths_tried = Arc::new(AtomicU32::new(0));
 
-        while !incomplete_paths.is_empty() {
-            let total_tries = Arc::new(AtomicU32::new(0));
+        Solver::solve_inner(
+            &incomplete_path,
+            &mut best_path,
+            &mut path_explored_callback,
+        );
 
-            let new_incomplete_paths = incomplete_paths
-                .par_iter()
-                .map(|incomplete_path| {
-                    let (paths, tries) = incomplete_path.explode();
-                    total_tries.fetch_add(tries, Ordering::Relaxed);
-
-                    let mut new_incomplete_paths = Vec::with_capacity(paths.len()); // preallocating full capacity for worst case
-
-                    for path in paths {
-                        if path.remaining.len() > 1 {
-                            new_incomplete_paths.push(path);
-                        } else {
-                            paths_tried.fetch_add(1, Ordering::Relaxed);
-                            let mut best_path = best_path.lock();
-
-                            if best_path
-                                .as_ref()
-                                .map(|e| path.is_more_effective(e))
-                                .unwrap_or(true)
-                            {
-                                *best_path = Some(path);
-                            }
-                        }
-                    }
-
-                    new_incomplete_paths
-                })
-                .flatten();
-
-            incomplete_paths = new_incomplete_paths.collect();
-
-            step_completion_callback(total_tries.load(Ordering::Relaxed));
-        }
-
-        let end = Instant::now();
-
-        let resolved_path = if let Some(path) = Arc::try_unwrap(best_path).unwrap().into_inner() {
+        let resolved_path = if let Some(path) = best_path {
             let mut steps = Vec::new();
 
             for step in &path.steps {
@@ -334,7 +329,6 @@ impl<'enchants> Solver<'enchants> {
         SolverResult {
             path: resolved_path,
             paths_tried: paths_tried.load(Ordering::Relaxed),
-            time: (end - start),
         }
     }
 }
