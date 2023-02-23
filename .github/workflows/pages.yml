@@ -41,6 +41,7 @@ jobs:
                   cp enchant_calc_gui/enable-threads.js dist/enable-threads.js
                   cp enchant_calc_gui/index.html dist/index.html
                   cp enchant_calc_gui/worker.mjs dist/worker.mjs
+                  cp enchant_calc_gui/assets/enchanted_book.ico dist/favicon.ico
 
                   mkdir dist/assets
                   cp enchant_calc_gui/assets/manifest.json dist/assets/manifest.json
