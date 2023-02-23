@@ -35,12 +35,18 @@ jobs:
               run: wasm-pack build --no-typescript --target web --release enchant_calc_gui
 
             - name: Copy files for deployment
+              # Removing gitignore to allow gh-pages to pick-up the folder
               run: |
                   mkdir dist
                   cp enchant_calc_gui/enable-threads.js dist/enable-threads.js
                   cp enchant_calc_gui/index.html dist/index.html
                   cp enchant_calc_gui/worker.mjs dist/worker.mjs
+
+                  mkdir dist/assets
+                  cp enchant_calc_gui/assets/manifest.json dist/assets/manifest.json
+
                   cp -R enchant_calc_gui/pkg dist/pkg
+                  rm -rf dist/pkg/.gitignore
 
             - name: Deploy
               uses: JamesIves/github-pages-deploy-action@v4
