@@ -1,0 +1,10 @@
+{
+  "name": "enchant_calc_gui",
+  "version": "0.1.0",
+  "files": [
+    "enchant_calc_gui_bg.wasm",
+    "enchant_calc_gui.js"
+  ],
+  "module": "enchant_calc_gui.js",
+  "sideEffects": false
+}
